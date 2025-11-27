@@ -86,8 +86,6 @@ export default function GenerateDataPage() {
   const [total, setTotal] = useState(0);
   const [message, setMessage] = useState("");
   const [previewData, setPreviewData] = useState<HealthRecord[]>([]);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]); // Fecha actual
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]); // Fecha actual
   const router = useRouter();
 
   useEffect(() => {
@@ -103,26 +101,20 @@ export default function GenerateDataPage() {
   }, [router]);
 
   const generatePreview = () => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    if (start > end) {
-      setMessage("❌ La fecha de inicio debe ser anterior a la fecha final");
-      return;
-    }
+    const endDate = new Date('2025-11-25');
+    const startDate = new Date('2025-11-11');
     
     const allRecords: HealthRecord[] = [];
-    const currentDate = new Date(start);
+    const currentDate = new Date(startDate);
     
-    while (currentDate <= end) {
+    while (currentDate <= endDate) {
       const dayRecords = generateDayData(new Date(currentDate));
       allRecords.push(...dayRecords);
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
     setPreviewData(allRecords);
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    setMessage(`Preview: ${allRecords.length} registros para ${days} día(s) (${start.toLocaleDateString('es-ES')} - ${end.toLocaleDateString('es-ES')})`);
+    setMessage(`Preview: ${allRecords.length} registros serán generados`);
   };
 
   const uploadData = async () => {
@@ -131,30 +123,24 @@ export default function GenerateDataPage() {
       return;
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    if (start > end) {
-      setMessage("❌ La fecha de inicio debe ser anterior a la fecha final");
-      return;
-    }
-
     setLoading(true);
     setProgress(0);
     setMessage("Generando datos...");
 
-    const allRecords: HealthRecord[] = [];
-    const currentDate = new Date(start);
+    const endDate = new Date('2025-11-25');
+    const startDate = new Date('2025-11-11');
     
-    while (currentDate <= end) {
+    const allRecords: HealthRecord[] = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
       const dayRecords = generateDayData(new Date(currentDate));
       allRecords.push(...dayRecords);
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     setTotal(allRecords.length);
-    setMessage(`Subiendo ${allRecords.length} registros (${days} día(s)) a Firestore...`);
+    setMessage(`Subiendo ${allRecords.length} registros a Firestore...`);
 
     // Usar el ID del usuario autenticado
     const healthRef = collection(db, "users", user.uid, "health_records");
@@ -199,44 +185,8 @@ export default function GenerateDataPage() {
         <div className="card bg-base-100 shadow-xl mb-6">
           <div className="card-body">
             <h2 className="card-title">Configuración</h2>
-            
-            {/* Selector de fechas */}
-            <div className="form-control w-full mb-4">
-              <label className="label">
-                <span className="label-text font-semibold">Período de datos</span>
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">
-                    <span className="label-text text-xs">Fecha inicio</span>
-                  </label>
-                  <input 
-                    type="date" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="input input-bordered w-full"
-                    disabled={loading}
-                  />
-                </div>
-                <div>
-                  <label className="label">
-                    <span className="label-text text-xs">Fecha fin</span>
-                  </label>
-                  <input 
-                    type="date" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="input input-bordered w-full"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-              <label className="label">
-                <span className="label-text-alt">Selecciona el período para el que quieres generar datos</span>
-              </label>
-            </div>
-
             <ul className="list-disc list-inside text-sm text-base-content/70 mb-4">
+              <li>Período: 11/11/2025 - 25/11/2025 (2 semanas)</li>
               <li>Usuario: <span className="font-mono text-xs">{user?.uid}</span></li>
               <li>Email: {user?.email}</li>
               <li>Horarios: Cada hora de 8:00 a 23:00 (16 registros/día)</li>
@@ -269,10 +219,6 @@ export default function GenerateDataPage() {
                   "🚀 Generar y Subir Datos"
                 )}
               </button>
-            </div>
-
-            <div className="text-xs text-base-content/60 mt-2">
-              ℹ️ Los datos se generarán para el período seleccionado y se normalizarán antes de guardar
             </div>
 
             {loading && (

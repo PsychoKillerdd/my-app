@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
+  const [latestWrittenRecord, setLatestWrittenRecord] = useState<HealthRecord | null>(null);
   const [loadingRecords, setLoadingRecords] = useState(false);
   const router = useRouter();
 
@@ -43,6 +44,10 @@ export default function DashboardPage() {
 
       console.log("Total documentos obtenidos:", querySnapshot.size);
 
+      // Obtener el registro más reciente escrito (por createdAt o event_timestamp)
+      let mostRecentRecord: HealthRecord | null = null;
+      let mostRecentTimestamp: Date | null = null;
+
       const recordsByDate: Map<string, HealthRecord> = new Map();
       
       querySnapshot.forEach((doc) => {
@@ -53,44 +58,88 @@ export default function DashboardPage() {
           console.log("Documento sin fecha:", doc.id, data);
           return;
         }
-        
-        // Si ya tenemos un registro para esta fecha, solo actualizar si este tiene horas de sueño
-        const existing = recordsByDate.get(fecha);
-        const currentSleep = data.horasDeSueno || 0;
-        const existingSleep = existing?.horasDeSueno || 0;
-        
-        // Preferir el registro con horas de sueño, o el más reciente
-        if (!existing || (currentSleep > 0 && existingSleep === 0) || 
-            (currentSleep > 0 && currentSleep > existingSleep)) {
-          recordsByDate.set(fecha, {
-            altura: data.altura,
-            createdAt: data.createdAt?.toDate(),
-            event_timestamp: data.event_timestamp?.toDate(),
-            fecha: data.fecha,
-            frecuenciaCardiaca: data.frecuenciaCardiaca,
-            frecuenciaCardiacaMax: data.frecuenciaCardiacaMax,
-            frecuenciaCardiacaMin: data.frecuenciaCardiacaMin,
-            horaRegistro: data.horaRegistro,
-            horasDeSueno: data.horasDeSueno,
-            nivelDeEstres: data.nivelDeEstres,
-            saturacionOxigeno: data.saturacionOxigeno,
-            pasosDiarios: data.pasosDiarios,
-            peso: data.peso,
-            relojColocado: data.relojColocado,
-            tiempoPantalla: data.tiempoPantalla,
-          });
-        } else if (existing) {
-          // Combinar datos: mantener horas de sueño existentes pero actualizar otros valores si son mayores
-          recordsByDate.set(fecha, {
-            ...existing,
-            frecuenciaCardiaca: Math.max(existing.frecuenciaCardiaca || 0, data.frecuenciaCardiaca || 0),
-            frecuenciaCardiacaMax: Math.max(existing.frecuenciaCardiacaMax || 0, data.frecuenciaCardiacaMax || 0),
-            frecuenciaCardiacaMin: Math.min(existing.frecuenciaCardiacaMin || 999, data.frecuenciaCardiacaMin || 999),
-            pasosDiarios: Math.max(existing.pasosDiarios || 0, data.pasosDiarios || 0),
-            saturacionOxigeno: data.saturacionOxigeno || existing.saturacionOxigeno,
+
+        // Log detallado para el día 26
+        if (fecha === "2025-11-26") {
+          console.log("Registro 2025-11-26:", {
+            horasDeSueno: data.horasDeSueno || data.horasDeSueño,
+            pasos: data.pasosDiarios,
+            estres: data.nivelDeEstres,
+            docData: data
           });
         }
+
+        const record: HealthRecord = {
+          altura: data.altura,
+          createdAt: data.createdAt?.toDate() || data.lastUpdated?.toDate(),
+          event_timestamp: data.event_timestamp?.toDate(),
+          fecha: data.fecha,
+          frecuenciaCardiaca: data.frecuenciaCardiaca,
+          frecuenciaCardiacaMax: data.frecuenciaCardiacaMax,
+          frecuenciaCardiacaMin: data.frecuenciaCardiacaMin,
+          horaRegistro: data.horaRegistro,
+          // Soporte para datos históricos con horasDeSueño (con tilde) y nuevos datos horasDeSueno (sin tilde)
+          horasDeSueno: data.horasDeSueno || data.horasDeSueño,
+          nivelDeEstres: data.nivelDeEstres,
+          saturacionOxigeno: data.saturacionOxigeno,
+          pasosDiarios: data.pasosDiarios,
+          peso: data.peso,
+          relojColocado: data.relojColocado,
+          tiempoPantalla: data.tiempoPantalla,
+        };
+
+        // Buscar el registro más reciente por timestamp (lastUpdated, createdAt o event_timestamp)
+        const recordTimestamp = data.lastUpdated?.toDate() || data.createdAt?.toDate() || data.event_timestamp?.toDate();
+        if (recordTimestamp && (!mostRecentTimestamp || recordTimestamp > mostRecentTimestamp)) {
+          mostRecentTimestamp = recordTimestamp;
+          mostRecentRecord = record;
+        }
+        
+        // Combinar registros del mismo día
+        const existing = recordsByDate.get(fecha);
+        
+        if (!existing) {
+          // Primer registro para esta fecha
+          recordsByDate.set(fecha, record);
+        } else {
+          // Combinar datos: tomar el mejor valor de cada campo
+          const combined = {
+            ...existing,
+            // Para sueño: tomar el valor que exista (priorizar el mayor si ambos existen)
+            horasDeSueno: ((data.horasDeSueno || data.horasDeSueño) && (data.horasDeSueno || data.horasDeSueño) > 0) 
+              ? (existing.horasDeSueno && existing.horasDeSueno > 0 
+                  ? Math.max(existing.horasDeSueno, data.horasDeSueno || data.horasDeSueño) 
+                  : (data.horasDeSueno || data.horasDeSueño))
+              : existing.horasDeSueno,
+            frecuenciaCardiaca: Math.max(existing.frecuenciaCardiaca || 0, data.frecuenciaCardiaca || 0),
+            frecuenciaCardiacaMax: Math.max(existing.frecuenciaCardiacaMax || 0, data.frecuenciaCardiacaMax || 0),
+            frecuenciaCardiacaMin: existing.frecuenciaCardiacaMin && existing.frecuenciaCardiacaMin < 999
+              ? (data.frecuenciaCardiacaMin && data.frecuenciaCardiacaMin > 0 
+                  ? Math.min(existing.frecuenciaCardiacaMin, data.frecuenciaCardiacaMin) 
+                  : existing.frecuenciaCardiacaMin)
+              : (data.frecuenciaCardiacaMin && data.frecuenciaCardiacaMin > 0 ? data.frecuenciaCardiacaMin : 0),
+            pasosDiarios: Math.max(existing.pasosDiarios || 0, data.pasosDiarios || 0),
+            nivelDeEstres: data.nivelDeEstres || existing.nivelDeEstres,
+            saturacionOxigeno: (data.saturacionOxigeno && !isNaN(data.saturacionOxigeno)) 
+              ? data.saturacionOxigeno 
+              : existing.saturacionOxigeno,
+          };
+          
+          if (fecha === "2025-11-26") {
+            console.log("Combinando 2025-11-26:", {
+              existing: existing.horasDeSueno,
+              new: data.horasDeSueno,
+              result: combined.horasDeSueno
+            });
+          }
+          
+          recordsByDate.set(fecha, combined);
+        }
       });
+
+      // Guardar el registro más reciente escrito
+      setLatestWrittenRecord(mostRecentRecord);
+      console.log("Registro más reciente:", mostRecentRecord);
 
       console.log("Fechas únicas encontradas:", Array.from(recordsByDate.keys()));
 
@@ -106,6 +155,12 @@ export default function DashboardPage() {
       console.error("Error fetching health records:", error);
     } finally {
       setLoadingRecords(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    if (user) {
+      fetchHealthRecords(user.uid);
     }
   };
 
@@ -126,8 +181,8 @@ export default function DashboardPage() {
     );
   }
 
-  // Obtener el último registro para los valores actuales
-  const latestRecord = healthRecords[healthRecords.length - 1];
+  // Obtener el último registro para los valores actuales (usa el más reciente escrito)
+  const latestRecord = latestWrittenRecord || healthRecords[healthRecords.length - 1];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -136,6 +191,28 @@ export default function DashboardPage() {
           <span className="text-xl font-semibold text-gray-800 px-4">Samsung Machine</span>
         </div>
         <div className="flex-none gap-2">
+          {/* Botón de Refrescar */}
+          <button
+            onClick={handleRefresh}
+            disabled={loadingRecords}
+            className="btn btn-ghost btn-circle"
+            title="Actualizar datos"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className={`w-5 h-5 text-gray-600 ${loadingRecords ? 'animate-spin' : ''}`}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+              />
+            </svg>
+          </button>
           <div className="dropdown dropdown-end">
             <div
               tabIndex={0}
@@ -148,7 +225,7 @@ export default function DashboardPage() {
             </div>
             <ul
               tabIndex={0}
-              className="mt-3 z-[1] p-2 shadow-lg menu menu-sm dropdown-content bg-white rounded-lg w-52 border border-gray-100"
+              className="mt-3 z-1 p-2 shadow-lg menu menu-sm dropdown-content bg-white rounded-lg w-52 border border-gray-100"
             >
               <li>
                 <a className="text-gray-700 hover:bg-gray-50">Perfil</a>
