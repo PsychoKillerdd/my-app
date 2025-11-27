@@ -49,8 +49,15 @@ function generateDayData(date: Date): HealthRecord[] {
     // Oxígeno: cambiar cada hora entre 96 y 99
     const spo2 = random(96, 99);
     
-    // Estrés: cambiar cada hora entre 20 y 100
-    const stressLevel = random(20, 100);
+    // Estrés: máximo 35%, bajo en las mañanas (8-11h)
+    let stressLevel;
+    if (hour >= 8 && hour <= 11) {
+      // Mañanas: estrés bajo (5-15%)
+      stressLevel = random(5, 15);
+    } else {
+      // Resto del día: estrés normal (15-35%)
+      stressLevel = random(15, 35);
+    }
     
     const dateStr = date.toISOString().split('T')[0];
     const minute = random(0, 59);
@@ -244,7 +251,7 @@ export default function GenerateDataPage() {
               <li>Frecuencia cardíaca: Diferente cada hora (60-100 BPM)</li>
               <li>Pasos: Acumulados por hora (+100 a +500 cada hora)</li>
               <li>Saturación O2: Cambia cada hora (96-99%)</li>
-              <li>Estrés: Cambia cada hora (20-100)</li>
+              <li>Estrés: Mañanas (8-11h): 5-15% | Resto: 15-35%</li>
             </ul>
 
             <div className="flex gap-4">

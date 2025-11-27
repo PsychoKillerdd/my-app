@@ -30,7 +30,7 @@ function generateDayData(date: Date) {
     const isMorning = hour <= 9;
     
     // Frecuencia cardíaca base según actividad
-    let fcBase = 65; // reposo normal
+    let fcBase = 60; // reposo normal
     let fcMin = 55;
     let fcMax = 75;
     
