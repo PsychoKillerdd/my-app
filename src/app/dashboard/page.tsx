@@ -227,6 +227,14 @@ export default function DashboardPage() {
               tabIndex={0}
               className="mt-3 z-1 p-2 shadow-lg menu menu-sm dropdown-content bg-white rounded-lg w-52 border border-gray-100"
             >
+              {/* Mostrar opción de Admin solo para admin@samsung.cl */}
+              {user?.email === "admin@samsung.cl" && (
+                <li>
+                  <a href="/admin" className="text-blue-600 hover:bg-blue-50 font-medium">
+                    Panel de Administración
+                  </a>
+                </li>
+              )}
               <li>
                 <a className="text-gray-700 hover:bg-gray-50">Perfil</a>
               </li>
